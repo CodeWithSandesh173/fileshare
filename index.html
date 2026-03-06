@@ -2,48 +2,122 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Video Player</title>
-
+<title>Nepal Map Interactive</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <style>
-    body{
-        margin:0;
-        background:#000;
-        display:flex;
-        justify-content:center;
-        align-items:center;
-        height:100vh;
-    }
-
-    .video-container{
-        position:relative;
-        width:90%;
-        max-width:1000px;
-        aspect-ratio:16/9;
-    }
-
-    .video-container iframe{
-        position:absolute;
-        top:0;
-        left:0;
-        width:100%;
-        height:100%;
-        border:none;
-    }
+  body { font-family: Arial; }
+  #map { height: 80vh; width: 100%; }
+  .controls { margin: 10px; }
+  select { padding: 5px; margin-right: 10px; }
 </style>
 </head>
-
 <body>
 
-<div class="video-container">
-    <iframe 
-        src="https://www.youtube.com/embed/AKITOMzUZf0?si=UnCWh73iZ1nq2c36"
-        title="YouTube video player"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-        referrerpolicy="strict-origin-when-cross-origin"
-        allowfullscreen>
-    </iframe>
+<div class="controls">
+  Province: 
+  <select id="provinceSelect">
+    <option value="">--Select Province--</option>
+    <option value="koshi_province_1">Koshi</option>
+    <option value="madhesh_province_2">Madhesh</option>
+    <option value="bagmati_province_3">Bagmati</option>
+    <option value="gandaki_province_4">Gandaki</option>
+    <option value="lumbini_province_5">Lumbini</option>
+    <option value="karnali_province_6">Karnali</option>
+    <option value="sudurpashchim_province_7">Sudurpashchim</option>
+  </select>
+
+  District:
+  <select id="districtSelect">
+    <option value="">--Select District--</option>
+  </select>
 </div>
 
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+var map = L.map('map', { zoomControl: true, attributionControl: false }).setView([28.2, 84.0], 7);
+
+// Style for Nepal outline
+var nepalLayer;
+
+// Load whole Nepal first
+fetch('nepal.geojson')
+  .then(res => res.json())
+  .then(data => {
+    nepalLayer = L.geoJSON(data, {
+      style: { color: 'red', weight: 2, fillColor: 'orange', fillOpacity: 0.4 }
+    }).addTo(map);
+    map.fitBounds(nepalLayer.getBounds());
+  });
+
+// Province -> district mapping
+const districts = {
+  koshi_province_1: [
+    'Ilam','Jhapa','Bhojpur','Dhankuta','Khotang','Morang','Okhaldhunga','Panchthar','Sankhuwasabha','Solukhumbu','Sunsari','Taplejung','Terhathum','Udayapur'
+  ],
+  madhesh_province_2: ['Bara','Dhanusha','Mahottari','Parsa','Rautahat','Saptari','Siraha'],
+  bagmati_province_3: ['Bhaktapur','Chitawan','Dhading','Dolakha','Kathmandu','Kabhrepalanchok','Lalitpur','Makawanpur','Nuwakot','Ramechhap','Rasuwa','Sindhuli','Sindhupalchok'],
+  gandaki_province_4: ['Baglung','Gorkha','Kaski','Lamjung','Manang','Mustang','Myagdi','Nawalparasi4','Parbat','Syangja','Tanahu'],
+  lumbini_province_5: ['Arghakhanchi','Banke','Bardiya','Dang','Gulmi','Kapilbastu','Nawalparasi5','Palpa','Pyuthan','Rolpa','Rukum5','Rupandehi'],
+  karnali_province_6: ['Dailekh','Dolpa','Humla','Jajarkot','Jumla','Kalikot','Mugu','Rukum6','Salyan','Surkhet'],
+  sudurpashchim_province_7: ['Achham','Baitadi','Bajhang','Bajura','Dadeldhura','Darchula','Doti','Kailali','Kanchanpur']
+};
+
+// To keep track of layers
+var currentProvinceLayer;
+var currentDistrictLayer;
+
+// When province is selected
+document.getElementById('provinceSelect').addEventListener('change', function() {
+  var prov = this.value;
+  var districtSelect = document.getElementById('districtSelect');
+  districtSelect.innerHTML = '<option value="">--Select District--</option>';
+
+  if (!prov) return;
+
+  // Add districts to dropdown
+  districts[prov].forEach(d => {
+    var opt = document.createElement('option');
+    opt.value = d;
+    opt.text = d;
+    districtSelect.appendChild(opt);
+  });
+
+  // Remove previous province layer
+  if (currentProvinceLayer) map.removeLayer(currentProvinceLayer);
+
+  // Load province GeoJSON
+  fetch(`maps-of-provinces/${prov}.geojson`)
+    .then(res => res.json())
+    .then(data => {
+      currentProvinceLayer = L.geoJSON(data, {
+        style: { color: 'black', weight: 2, fillColor: 'yellow', fillOpacity: 0.4 }
+      }).addTo(map);
+      map.fitBounds(currentProvinceLayer.getBounds());
+    });
+});
+
+// When district is selected
+document.getElementById('districtSelect').addEventListener('change', function() {
+  var district = this.value;
+  var prov = document.getElementById('provinceSelect').value;
+
+  if (!district || !prov) return;
+
+  // Remove previous district layer
+  if (currentDistrictLayer) map.removeLayer(currentDistrictLayer);
+
+  // Load district GeoJSON
+  fetch(`maps-of-districts/${prov}_districts/${district}.geojson`)
+    .then(res => res.json())
+    .then(data => {
+      currentDistrictLayer = L.geoJSON(data, {
+        style: { color: 'blue', weight: 2, fillColor: 'lightblue', fillOpacity: 0.5 }
+      }).addTo(map);
+      map.fitBounds(currentDistrictLayer.getBounds());
+    });
+});
+</script>
 </body>
 </html>
